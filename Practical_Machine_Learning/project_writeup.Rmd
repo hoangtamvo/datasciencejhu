@@ -1,0 +1,88 @@
+---
+title: "Practical Machine Learning - Course Project Report"
+output:
+  html_document:
+    fig_height: 9
+    fig_width: 9
+  pdf_document: default
+---
+
+## Introduction  
+<!--Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it.   In this project, we will use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to predict the manner in which they did the exercise.  -->
+
+The aim of this project is to predict activity quality (the manner in which the participants did the exercise) from activity monitors (accelerometers on the belt, forearm, arm, and dumbell of 6 participants). The data source for this project and its description  are available on this website: http://groupware.les.inf.puc-rio.br/har. Specifically, the training data (pml-training.csv) can be downloaded from: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv, while the test data (pml-testing.csv) can be downloaded from: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv. 
+
+## Load Libraries  
+```{r, cache = T, warning=FALSE, results='hide', message=FALSE}
+library(caret)
+library(randomForest)
+```  
+### Load Raw Input Data
+The data source is manually downloaded and placed inside this working directory. In this step, the orignial traning and test csv files are loaded into memory.  
+```{r, cache = T}
+rawTrain <- read.csv("pml-training.csv")
+rawTest <- read.csv("pml-testing.csv")
+```
+
+### Clean Data
+All columns from the original data containing missing values are discarded.
+```{r, cache = T}
+rawTrain <- rawTrain[, colSums(is.na(rawTrain)) == 0] 
+rawTest <- rawTest[, colSums(is.na(rawTest)) == 0] 
+```  
+Columns that do not contribute much to the accelerometer measurements are also removed.
+```{r, cache = T}
+classe <- rawTrain$classe
+discardedTrain <- grepl("^X|timestamp|window", names(rawTrain))
+rawTrain <- rawTrain[, !discardedTrain]
+cleanTrain <- rawTrain[, sapply(rawTrain, is.numeric)]
+cleanTrain$classe <- classe
+discardedTest <- grepl("^X|timestamp|window", names(rawTest))
+rawTest <- rawTest[, !discardedTest]
+cleanTest <- rawTest[, sapply(rawTest, is.numeric)]
+```
+
+### Slice Data
+In this step, a validation data set for future cross validation is created.  Specifically, the clean training set obtained from the previous step is now divided into a pure training data set (70%) and a validation data set (30%). 
+```{r, cache = T}
+set.seed(20150523)
+partitions <- createDataPartition(cleanTrain$classe, p=0.70, list=F)
+trainData <- cleanTrain[partitions, ]
+validationData <- cleanTrain[-partitions, ]
+```
+
+## Build Prediction Model using Random Forest
+As random forest algrithm automatically chooses important variables and is robust to correlated covariates and outliers, it is used to fit a model for predicting activity quality from activity monitors. The algorihthm is configured to use 5-fold cross validation.  
+```{r, cache = T}
+control <- trainControl(method="cv", 5)
+model <- train(classe ~ ., data=trainData, method="rf", trControl=control, ntree=250)
+model
+```
+The estimated accuracy and out-of-sample error of the model are computed based on cross-validation.  
+```{r, cache = T, results='hide'}
+predict <- predict(model, validationData)
+confusionMatrix(validationData$classe, predict)
+```
+```{r, cache = T}
+accuracy <- postResample(predict, validationData$classe)
+accuracy
+outOfSampleError <- 1 - as.numeric(confusionMatrix(validationData$classe, predict)$overall[1])
+outOfSampleError
+```
+Overall, the estimated accuracy of the model is 99.27%, while the estimated out-of-sample error is 0.73%.
+
+## Apply Prediction Model and Write Results to Files
+Finally, the prediction model built previously is applied on the test data set. The predicted results are persisted into files.  
+```{r, cache = T}
+result <- predict(model, cleanTest[, -length(names(cleanTest))])
+result
+pml_write_files <- function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("results/problem_id_",i,".txt")
+    write.table(x[i], file=filename, quote=FALSE,
+                row.names=FALSE, col.names=FALSE)
+  }
+}
+pml_write_files(result)
+```  
