@@ -1,0 +1,74 @@
+---
+title: "Statistical Inference Project, Part 2"
+author: "Hoang Tam Vo"
+output: pdf_document
+---
+
+# Overview
+
+
+In this part of the project, I analyze the ToothGrowth data in the R datasets package. Specifically, I load the ToothGrowth data and perform some basic exploratory data analyses as well as provide a basic summary of the data. Further, confidence intervals and hypothesis tests are used to compare tooth growth by supp and dose. Finally, conclusions and the assumptions needed are discussed. 
+
+# Questions 1: Load the ToothGrowth data and perform some basic exploratory data analyses
+
+
+```{r, warning=FALSE, message=FALSE}
+library(ggplot2)
+library(datasets)
+data(ToothGrowth)
+str(ToothGrowth)
+ToothGrowth[c(1:8),]
+```
+
+```{r}
+plot <- ggplot(ToothGrowth, aes(x=factor(dose), y=len, fill=factor(dose)))
+
+plot + geom_boxplot(notch=F) +
+     facet_grid(.~supp) +
+     scale_x_discrete("Dosage (milligram)") +   
+     scale_y_continuous("Length of teeth")  + 
+     ggtitle("Exploratory data analyses")
+```
+
+
+# Questions 2: Provide a basic summary of the data
+
+
+```{r}
+ToothGrowth$dose <- as.factor(ToothGrowth$dose)
+summary(ToothGrowth)
+```
+
+```{r}
+table(ToothGrowth$dose, ToothGrowth$supp)
+
+```
+
+
+# Question 3: Use confidence intervals and hypothesis tests to compare tooth growth by supp and dose
+
+```{r}
+test1 <- t.test(len~supp, paired=F, var.equal=T, data=ToothGrowth)
+test2 <- t.test(len~supp, paired=F, var.equal=F, data=ToothGrowth)
+result <- data.frame("p-value"=c(test1$p.value, test2$p.value),
+                          "Low Confidence"=c(test1$conf[1],test2$conf[1]),
+                          "High Confidence"=c(test1$conf[2],test2$conf[2]),
+                          row.names=c("Equal","Unequal"))
+result
+```
+
+
+# Question 4: State  conclusions and the assumptions needed
+
+Given the above analysis, several conclusions can be drawn: 
+
+1. Orange juice (OJ) and vitamin C (VC) have different effect on the growth of the tooth.
+
+2. There is a difference in the tooth growth when the doses are larger.
+
+These analysis and conclusions are based on the followwing assumptions:
+
+* The sample data are repesentative for the entire population.
+
+* The distribution of the data is normal.
+
