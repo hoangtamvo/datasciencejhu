@@ -1,0 +1,124 @@
+---
+title       : Developing Data Products
+subtitle    : Project Presentation
+author      : 
+job         : 
+framework   : io2012        # {io2012, html5slides, shower, dzslides, ...}
+highlighter : highlight.js  # {highlight.js, prettify, highlight}
+hitheme     : tomorrow      # 
+widgets     : []            # {mathjax, quiz, bootstrap}
+mode        : selfcontained # {standalone, draft}
+knit        : slidify::knit2slides
+---
+
+## Detecting Phishing Email
+
+### Instructions
+
+1. Type the email content in the text area and then click button 'Detect'. 
+
+2. A bar plot of frequency list of words in the email will be shown in the main panel. 
+
+3. A message whether this looks like a phising email will be printed out as well.
+
+--- .class #id 
+
+## ui.R
+```{r, echo=TRUE, eval=FALSE}
+inputTextarea <- function(inputId, value="", nrows, ncols) {
+  tagList(
+    singleton(tags$head(tags$script(src = "textarea.js"))),
+    tags$textarea(id = inputId,
+                  class = "inputtextarea",
+                  rows = nrows,
+                  cols = ncols,
+                  as.character(value))
+  )
+}
+
+shinyUI(pageWithSidebar(
+  headerPanel("Detecting Phishing Email"),
+  
+  sidebarPanel(
+    h3('Instructions'),
+    p('Type the email content in the text area below 
+      and then click button \'Detect\'. 
+      A bar plot of frequency list of words 
+      in the email will be shown in the main panel. 
+      A message whether this looks like a phising email
+      will be printed out as well.'),
+    
+    h3('Email\'s body:'),
+    
+    inputTextarea('textarea', 
+                  'Please type email content here! 
+                  Please let us know your password 
+                  for account maintenance.',
+                  10,35 ),
+    
+    submitButton('Detect')
+    ),
+  
+  mainPanel(    
+    h3('Result of Analysing Email Content'),
+    
+    h4('Word Frequency List'),
+    plotOutput('barplot'),
+    
+    h4('Detection Message:'),
+    verbatimTextOutput("text")
+  )
+ )
+)
+```
+
+--- .class #id 
+
+## data_processing.R
+```{r, echo=TRUE, eval=FALSE}
+computeFrequencyList <- function(text.input) {
+  punct <- '[]\\?!\"\'#$%&(){}+*/:;,._`|~\\[<=>@\\^-]'
+  punct2 <- sub( "'", "", punct )
+  text.clean <- gsub( punct2, "", text.input )
+  text.clean <- gsub( '\n', " ", text.clean )
+  text.clean<-tolower(text.clean)
+  words.vector <- unlist(strsplit(text.clean, "\\s+"))
+  freq.list <- table(words.vector)
+  freq.list
+}
+
+detectPhishing <- function(freq.list){
+  if (!is.na(freq.list["password"])) {
+    result <- "Warning! This looks like a phishing email!"
+  }
+  else {
+    result <- "This looks like a normal email."
+  }
+  result
+} 
+```
+
+--- .class #id 
+
+## server.R
+```{r, echo=TRUE, eval=FALSE}
+source('data_processing.R')
+
+shinyServer(
+  
+  function(input, output, session) {
+    text.input <- reactive(input$textarea)
+    freq.list <-  reactive(computeFrequencyList (text.input())) 
+    
+    output$barplot <- renderPlot({
+      barplot(freq.list())
+    })
+    
+    output$text <- renderPrint({
+      detectPhishing(freq.list())}
+    )
+  }
+)
+```
+
+
